@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
-import { Plus, Trash2, Calendar, X } from 'lucide-react';
+import { Plus, Trash2, Calendar, X, Bell } from 'lucide-react';
 
 const Tasks = ({ startupId }) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Toast state
+  const [toast, setToast] = useState(null);
+
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -31,6 +34,23 @@ const Tasks = ({ startupId }) => {
   useEffect(() => {
     fetchTasks();
   }, [startupId]);
+
+  const showToast = (message, isError = false) => {
+    setToast({ message, isError });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleNotify = async (id, e) => {
+    e.stopPropagation();
+    try {
+      showToast('Sending notification...');
+      await api.post(`/tasks/${id}/notify`);
+      showToast('Webhook notified successfully!');
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.message || 'Failed to notify webhook', true);
+    }
+  };
 
   const handleAddSubmit = async (e) => {
     e.preventDefault();
@@ -116,6 +136,26 @@ const Tasks = ({ startupId }) => {
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      
+      {/* Toast Notification */}
+      {toast && (
+        <div style={{
+          position: 'absolute',
+          top: '1rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: toast.isError ? '#ef4444' : '#10b981',
+          color: 'white',
+          padding: '0.75rem 1.5rem',
+          borderRadius: '4px',
+          zIndex: 1000,
+          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+          transition: 'all 0.3s ease'
+        }}>
+          {toast.message}
+        </div>
+      )}
+
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1 className="mono">Tasks</h1>
@@ -153,13 +193,22 @@ const Tasks = ({ startupId }) => {
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
                       <strong style={{ display: 'block', marginBottom: '0.5rem' }}>{task.title}</strong>
-                      <button 
-                        onClick={(e) => deleteTask(task._id, e)} 
-                        style={{ background: 'none', border: 'none', color: '#ef4444', padding: '0.25rem', cursor: 'pointer' }}
-                        title="Delete task"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button 
+                          onClick={(e) => handleNotify(task._id, e)} 
+                          style={{ background: 'none', border: 'none', color: '#60a5fa', padding: '0.25rem', cursor: 'pointer' }}
+                          title="Trigger n8n webhook"
+                        >
+                          <Bell size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => deleteTask(task._id, e)} 
+                          style={{ background: 'none', border: 'none', color: '#ef4444', padding: '0.25rem', cursor: 'pointer' }}
+                          title="Delete task"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                     {task.dueDate && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>

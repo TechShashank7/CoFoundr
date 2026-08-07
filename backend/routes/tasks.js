@@ -50,4 +50,44 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// POST /api/tasks/:id/notify
+router.post('/:id/notify', async (req, res) => {
+  try {
+    const webhookUrl = process.env.N8N_WEBHOOK_URL;
+    if (!webhookUrl) {
+      return res.status(400).json({ message: 'N8N_WEBHOOK_URL not configured' });
+    }
+
+    const task = await Task.findById(req.params.id);
+    if (!task) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    const payload = {
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      startupId: task.startupId
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      return res.status(502).json({ message: `Webhook failed with status ${response.status}`, details: errText });
+    }
+
+    res.json({ message: 'Notification sent successfully' });
+  } catch (error) {
+    console.error('Webhook notification error:', error);
+    res.status(502).json({ message: 'Network error calling webhook', error: error.message });
+  }
+});
+
 module.exports = router;
