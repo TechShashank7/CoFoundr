@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
-import { Plus, Trash2, Calendar, X, Bell } from 'lucide-react';
+import { Plus, Trash2, Calendar, X, Bell, Sparkles } from 'lucide-react';
 
 const Tasks = ({ startupId }) => {
   const [tasks, setTasks] = useState([]);
@@ -12,7 +12,13 @@ const Tasks = ({ startupId }) => {
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
   
+  // Suggest state
+  const [suggestedTasks, setSuggestedTasks] = useState([]);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState(null);
+
   // Add Task Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -74,6 +80,49 @@ const Tasks = ({ startupId }) => {
   const closeAddModal = () => {
     setIsAddModalOpen(false);
     setFormData({ title: '', description: '', dueDate: '' });
+  };
+
+  const handleSuggestTasks = async () => {
+    setIsSuggestModalOpen(true);
+    setIsSuggesting(true);
+    setSuggestError(null);
+    setSuggestedTasks([]);
+
+    try {
+      const res = await api.post('/tasks/suggest', { startupId });
+      setSuggestedTasks(res.data);
+    } catch (err) {
+      console.error(err);
+      setSuggestError(err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to generate suggestions');
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
+
+  const acceptSuggestion = async (suggestion) => {
+    try {
+      const res = await api.post('/tasks', {
+        startupId,
+        title: suggestion.title,
+        description: `Suggested Priority: ${suggestion.priority}`,
+        dueDate: null,
+        status: 'backlog',
+        priority: suggestion.priority || 'medium'
+      });
+      setTasks([res.data, ...tasks]);
+      dismissSuggestion(suggestion.title);
+      showToast('Task added from suggestion!');
+    } catch (err) {
+      console.error('Failed to create task from suggestion:', err);
+      showToast('Failed to add suggested task', true);
+    }
+  };
+
+  const dismissSuggestion = (title) => {
+    setSuggestedTasks(prev => prev.filter(s => s.title !== title));
+    if (suggestedTasks.length === 1) { // Will be 0 after update
+      setIsSuggestModalOpen(false);
+    }
   };
 
   const updateStatus = async (id, status) => {
@@ -161,9 +210,14 @@ const Tasks = ({ startupId }) => {
           <h1 className="mono">Tasks</h1>
           <p style={{ color: 'var(--text-muted)' }}>Kanban board for your startup's execution.</p>
         </div>
-        <button onClick={() => setIsAddModalOpen(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Plus size={18} /> ADD TASK
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={handleSuggestTasks} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#3b82f6', color: 'white', border: 'none' }}>
+            <Sparkles size={18} /> AI: SUGGEST NEXT TASKS
+          </button>
+          <button onClick={() => setIsAddModalOpen(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={18} /> ADD TASK
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -261,6 +315,60 @@ const Tasks = ({ startupId }) => {
                 <button type="submit" className="btn btn-primary">Save Task</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* AI Suggestions Modal */}
+      {isSuggestModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsSuggestModalOpen(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sparkles size={24} color="#3b82f6" /> AI Task Suggestions
+              </h2>
+              <button className="modal-close" onClick={() => setIsSuggestModalOpen(false)}><X size={24} /></button>
+            </div>
+            
+            <div style={{ minHeight: '150px' }}>
+              {isSuggesting && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', color: 'var(--text-muted)' }}>
+                  Analyzing business plan and current tasks to generate high-leverage suggestions...
+                </div>
+              )}
+
+              {suggestError && (
+                <div style={{ color: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '4px' }}>
+                  <strong>Error:</strong> {suggestError}
+                </div>
+              )}
+
+              {!isSuggesting && !suggestError && suggestedTasks.length === 0 && (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '2rem' }}>
+                  No suggestions available right now.
+                </div>
+              )}
+
+              {!isSuggesting && suggestedTasks.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Here are the best next steps for your startup right now:</p>
+                  {suggestedTasks.map((sug, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-color)', padding: '1rem', border: '1px solid var(--border-color)', borderRadius: '4px' }}>
+                      <div>
+                        <strong style={{ display: 'block', marginBottom: '0.25rem' }}>{sug.title}</strong>
+                        <span style={{ fontSize: '0.8rem', padding: '0.15rem 0.5rem', backgroundColor: '#374151', borderRadius: '12px', textTransform: 'uppercase' }}>
+                          Priority: {sug.priority || 'Medium'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn" onClick={() => dismissSuggestion(sug.title)}>Dismiss</button>
+                        <button className="btn btn-primary" onClick={() => acceptSuggestion(sug)}>Accept</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
