@@ -9,6 +9,9 @@ import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
 import Tasks from './pages/Tasks';
 import BusinessPlan from './pages/BusinessPlan';
+import MarketResearch from './pages/MarketResearch';
+import FundraisingPrep from './pages/FundraisingPrep';
+import Competitors from './pages/Competitors';
 
 const Layout = ({ children }) => {
   return (
@@ -30,9 +33,12 @@ const Layout = ({ children }) => {
           <NavLink to="/business-plan" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
             <FileText size={18} /> Business Plan
           </NavLink>
-          {/* P1 Features placeholders */}
+          {/* P1 Features */}
           <NavLink to="/market-research" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
             <Search size={18} /> Market Research
+          </NavLink>
+          <NavLink to="/fundraising-prep" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
+            <FileText size={18} /> Fundraising Prep
           </NavLink>
           <NavLink to="/competitors" className={({isActive}) => isActive ? 'nav-item active' : 'nav-item'}>
             <BarChart2 size={18} /> Competitors
@@ -68,8 +74,9 @@ function App() {
           <Route path="/chat" element={<Chat startupId={startupId} />} />
           <Route path="/tasks" element={<Tasks startupId={startupId} />} />
           <Route path="/business-plan" element={<BusinessPlan startupId={startupId} />} />
-          <Route path="/market-research" element={<div>Market Research (Coming soon)</div>} />
-          <Route path="/competitors" element={<div>Competitors (Coming soon)</div>} />
+          <Route path="/market-research" element={<MarketResearch startupId={startupId} />} />
+          <Route path="/fundraising-prep" element={<FundraisingPrep startupId={startupId} />} />
+          <Route path="/competitors" element={<Competitors startupId={startupId} />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
