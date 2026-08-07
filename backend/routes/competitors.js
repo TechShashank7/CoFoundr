@@ -43,9 +43,83 @@ Provide a brief paragraph analyzing the overall competitive landscape before the
   }
 });
 
-// Placeholder for future P2 endpoints
-router.get('/', (req, res) => {
-    res.json([]);
+const Competitor = require('../models/Competitor');
+
+// GET /api/competitors/:startupId
+router.get('/:startupId', async (req, res) => {
+  try {
+    const competitors = await Competitor.find({ startupId: req.params.startupId }).sort({ createdAt: -1 });
+    res.json(competitors);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/competitors/nearby
+router.post('/nearby', async (req, res) => {
+  try {
+    const { startupId, businessType, address } = req.body;
+    
+    if (!startupId || !businessType || !address) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ message: 'GOOGLE_MAPS_API_KEY not configured' });
+    }
+
+    // 1. Geocode the address
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+    const geocodeRes = await fetch(geocodeUrl);
+    const geocodeData = await geocodeRes.json();
+
+    if (geocodeData.status !== 'OK' || !geocodeData.results.length) {
+      return res.status(400).json({ message: 'Could not geocode address', details: geocodeData.status });
+    }
+
+    const { lat, lng } = geocodeData.results[0].geometry.location;
+
+    // 2. Nearby Search for competitors
+    const placesUrl = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&keyword=${encodeURIComponent(businessType)}&key=${apiKey}`;
+    const placesRes = await fetch(placesUrl);
+    const placesData = await placesRes.json();
+
+    if (placesData.status !== 'OK' && placesData.status !== 'ZERO_RESULTS') {
+      return res.status(400).json({ message: 'Places API error', details: placesData.status });
+    }
+
+    const competitorsList = [];
+
+    // 3. Save results to database
+    if (placesData.results && placesData.results.length > 0) {
+      // Clear previous map competitors for this search to avoid duplicates if they search again?
+      // User didn't request clearing, so we'll just append. But to avoid massive spam, maybe we just return them. 
+      // Actually, user said: "Save each result as a Competitor document with source: 'maps'"
+      
+      const docsToInsert = placesData.results.slice(0, 10).map(place => ({
+        startupId,
+        name: place.name,
+        address: place.vicinity || place.formatted_address || 'Unknown address',
+        lat: place.geometry.location.lat,
+        lng: place.geometry.location.lng,
+        notes: `Rating: ${place.rating || 'N/A'}`,
+        source: 'maps'
+      }));
+
+      const inserted = await Competitor.insertMany(docsToInsert);
+      competitorsList.push(...inserted);
+    }
+
+    res.json({
+      center: { lat, lng },
+      competitors: competitorsList
+    });
+
+  } catch (error) {
+    console.error('Nearby Competitors Error:', error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router;
