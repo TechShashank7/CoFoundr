@@ -695,7 +695,7 @@ a:focus-visible {
 
 .v2-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--space-6);
   max-width: 1200px;
   margin: 0 auto;
@@ -751,7 +751,7 @@ a:focus-visible {
 
 /* Flagship cards */
 .feature-card-flagship {
-  grid-column: span 3;
+  grid-column: span 2;
   border-color: var(--border-accent);
   background: linear-gradient(135deg, var(--panel-bg) 0%, rgba(251,146,60,0.04) 100%);
 }
@@ -771,14 +771,7 @@ a:focus-visible {
   border-radius: 4px;
 }
 
-@media (min-width: 768px) {
-  .feature-card-flagship {
-    grid-column: span 2;
-  }
-  .feature-card-flagship:nth-child(2) {
-    grid-column: span 1;
-  }
-}
+/* flagship span is set globally above — no override needed */
 
 
 /* ── Closing CTA Banner ────────────────────── */
@@ -902,7 +895,7 @@ a:focus-visible {
   }
 
   .v2-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .feature-card-flagship,
