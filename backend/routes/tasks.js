@@ -4,56 +4,79 @@ const Task = require('../models/Task');
 const Startup = require('../models/Startup');
 const Report = require('../models/Report');
 const { generateResponse } = require('../services/geminiClient');
+const auth = require('../middleware/auth');
+const verifyStartupOwnership = require('../middleware/verifyStartupOwnership');
 
 // GET /api/tasks?startupId=xxx
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const { startupId } = req.query;
     if (!startupId) return res.status(400).json({ message: 'startupId is required' });
     
+    await verifyStartupOwnership(startupId, req.uid);
+
     const tasks = await Task.find({ startupId }).sort({ createdAt: -1 });
     res.json(tasks);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });
 
 // POST /api/tasks
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { startupId, title, description, status, priority, dueDate } = req.body;
+    await verifyStartupOwnership(startupId, req.uid);
+
     const task = new Task({ startupId, title, description, status, priority, dueDate });
     const savedTask = await task.save();
     res.status(201).json(savedTask);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });
 
 // PATCH /api/tasks/:id
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', auth, async (req, res) => {
   try {
-    const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
-    res.json(task);
+
+    await verifyStartupOwnership(task.startupId, req.uid);
+
+    Object.assign(task, req.body);
+    const savedTask = await task.save();
+    res.json(savedTask);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });
 
 // DELETE /api/tasks/:id
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   try {
-    const task = await Task.findByIdAndDelete(req.params.id);
+    const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    await verifyStartupOwnership(task.startupId, req.uid);
+
+    await Task.findByIdAndDelete(req.params.id);
     res.json({ message: 'Task deleted' });
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });
 
 // POST /api/tasks/:id/notify
-router.post('/:id/notify', async (req, res) => {
+router.post('/:id/notify', auth, async (req, res) => {
   try {
     const webhookUrl = process.env.N8N_WEBHOOK_URL;
     if (!webhookUrl) {
@@ -64,6 +87,8 @@ router.post('/:id/notify', async (req, res) => {
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
     }
+
+    await verifyStartupOwnership(task.startupId, req.uid);
 
     const payload = {
       title: task.title,
@@ -87,16 +112,20 @@ router.post('/:id/notify', async (req, res) => {
 
     res.json({ message: 'Notification sent successfully' });
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Webhook notification error:', error);
     res.status(502).json({ message: 'Network error calling webhook', error: error.message });
   }
 });
 
 // POST /api/tasks/suggest
-router.post('/suggest', async (req, res) => {
+router.post('/suggest', auth, async (req, res) => {
   try {
     const { startupId } = req.body;
     if (!startupId) return res.status(400).json({ message: 'startupId is required' });
+
+    await verifyStartupOwnership(startupId, req.uid);
 
     // 1. Fetch latest business plan
     const latestPlan = await Report.findOne({ startupId, type: 'business_plan' }).sort({ createdAt: -1 });
@@ -146,6 +175,8 @@ Each object must have exactly two keys: "title" (string) and "priority" (string:
     res.json(suggestions);
 
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Task Suggestion Error:', error);
     res.status(500).json({ error: error.message });
   }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../lib/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Download, MapPin } from 'lucide-react';
+import { Download, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const mapContainerStyle = {
@@ -17,6 +17,9 @@ const Competitors = ({ startupId }) => {
   const [mapCompetitors, setMapCompetitors] = useState([]);
   const [mapCenter, setMapCenter] = useState({ lat: 37.7749, lng: -122.4194 }); // Default SF
   
+  const [isMapCollapsed, setIsMapCollapsed] = useState(false);
+  const [collapsedReports, setCollapsedReports] = useState({});
+
   const [aiLoading, setAiLoading] = useState(false);
   const [mapLoading, setMapLoading] = useState(false);
 
@@ -92,6 +95,10 @@ const Competitors = ({ startupId }) => {
     } finally {
       setMapLoading(false);
     }
+  };
+
+  const toggleReport = (id) => {
+    setCollapsedReports(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleExport = (content, createdAt) => {
@@ -175,11 +182,22 @@ const Competitors = ({ startupId }) => {
           {/* Maps Results View */}
           {(mapCompetitors.length > 0 || mapLoading) && (
             <div className="card">
-              <h3 className="mono" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#60a5fa' }}>
-                <MapPin size={20} /> Real Local Businesses (Maps)
-              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isMapCollapsed ? '0' : '1.5rem' }}>
+                <h3 className="mono" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#60a5fa' }}>
+                  <MapPin size={20} /> Real Local Businesses (Maps)
+                </h3>
+                <button 
+                  onClick={() => setIsMapCollapsed(!isMapCollapsed)} 
+                  style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                  title={isMapCollapsed ? "Expand" : "Collapse"}
+                >
+                  {isMapCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                </button>
+              </div>
               
-              {isLoaded ? (
+              {!isMapCollapsed && (
+                <>
+                  {isLoaded && import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? (
                 <GoogleMap
                   mapContainerStyle={mapContainerStyle}
                   center={mapCenter}
@@ -194,8 +212,15 @@ const Competitors = ({ startupId }) => {
                   ))}
                 </GoogleMap>
               ) : (
-                <div style={{ height: '400px', backgroundColor: '#2d3748', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', marginBottom: '1.5rem' }}>
-                  Loading map...
+                <div style={{ height: '400px', backgroundColor: '#2d3748', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '8px', marginBottom: '1.5rem', padding: '2rem', textAlign: 'center' }}>
+                  {!import.meta.env.VITE_GOOGLE_MAPS_API_KEY ? (
+                    <>
+                      <div style={{ color: 'var(--accent)', marginBottom: '0.5rem', fontWeight: 'bold' }}>Map View Disabled</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>To see the map, add VITE_GOOGLE_MAPS_API_KEY to your frontend/.env file and restart the server.</div>
+                    </>
+                  ) : (
+                    <div>Loading map...</div>
+                  )}
                 </div>
               )}
 
@@ -208,33 +233,48 @@ const Competitors = ({ startupId }) => {
                   </div>
                 ))}
               </div>
+                </>
+              )}
             </div>
           )}
 
           {/* AI Analysis View */}
           {reports.map((report) => (
             <div key={report._id} className="card" style={{ overflowX: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: collapsedReports[report._id] ? '0' : '1.5rem', borderBottom: collapsedReports[report._id] ? 'none' : '1px solid var(--border-color)', paddingBottom: collapsedReports[report._id] ? '0' : '1rem' }}>
                 <div>
-                  <h3 className="mono" style={{ color: 'var(--accent)' }}>AI-Identified Indirect Competitors</h3>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  <h3 className="mono" style={{ color: 'var(--accent)', margin: 0 }}>AI-Identified Indirect Competitors</h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                     {new Date(report.createdAt).toLocaleString()}
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleExport(report.content, report.createdAt)}
-                  className="btn" 
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  <Download size={16} /> EXPORT .MD
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {!collapsedReports[report._id] && (
+                    <button 
+                      onClick={() => handleExport(report.content, report.createdAt)}
+                      className="btn" 
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                    >
+                      <Download size={16} /> EXPORT .MD
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => toggleReport(report._id)} 
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                    title={collapsedReports[report._id] ? "Expand" : "Collapse"}
+                  >
+                    {collapsedReports[report._id] ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                  </button>
+                </div>
               </div>
               
-              <div className="markdown-body table-responsive">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {report.content}
-                </ReactMarkdown>
-              </div>
+              {!collapsedReports[report._id] && (
+                <div className="markdown-body table-responsive">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {report.content}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
           ))}
 

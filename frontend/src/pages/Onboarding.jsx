@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/api';
 
 const Onboarding = ({ setStartupId }) => {
@@ -11,6 +12,7 @@ const Onboarding = ({ setStartupId }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,8 +21,9 @@ const Onboarding = ({ setStartupId }) => {
     try {
       const res = await api.post('/startups', formData);
       const newStartupId = res.data._id;
-      localStorage.setItem('startupId', newStartupId);
+      localStorage.setItem('activeStartupId', newStartupId);
       setStartupId(newStartupId);
+      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || err.message);
     } finally {
@@ -33,7 +36,7 @@ const Onboarding = ({ setStartupId }) => {
   };
 
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '2rem' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', padding: '2rem', backgroundColor: 'var(--bg)' }}>
       <div className="card" style={{ width: '100%', maxWidth: '500px' }}>
         <h2 style={{ textAlign: 'center', color: 'var(--accent)', marginBottom: '1.5rem', fontFamily: 'var(--font-mono)' }}>
           Welcome to CoFoundr_

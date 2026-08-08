@@ -3,12 +3,16 @@ const router = express.Router();
 const Report = require('../models/Report');
 const Startup = require('../models/Startup');
 const { generateResponse } = require('../services/geminiClient');
+const auth = require('../middleware/auth');
+const verifyStartupOwnership = require('../middleware/verifyStartupOwnership');
 
 // POST /api/competitors/analyze
-router.post('/analyze', async (req, res) => {
+router.post('/analyze', auth, async (req, res) => {
   try {
     const { startupId, productDescription, knownCompetitors } = req.body;
     
+    await verifyStartupOwnership(startupId, req.uid);
+
     const startup = await Startup.findById(startupId);
     if (!startup) return res.status(404).json({ message: 'Startup not found' });
 
@@ -38,6 +42,8 @@ Provide a brief paragraph analyzing the overall competitive landscape before the
     res.status(201).json(report);
 
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Competitor Analysis Error:', error);
     res.status(500).json({ error: error.message });
   }
@@ -46,23 +52,28 @@ Provide a brief paragraph analyzing the overall competitive landscape before the
 const Competitor = require('../models/Competitor');
 
 // GET /api/competitors/:startupId
-router.get('/:startupId', async (req, res) => {
+router.get('/:startupId', auth, async (req, res) => {
   try {
+    await verifyStartupOwnership(req.params.startupId, req.uid);
     const competitors = await Competitor.find({ startupId: req.params.startupId }).sort({ createdAt: -1 });
     res.json(competitors);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });
 
 // POST /api/competitors/nearby
-router.post('/nearby', async (req, res) => {
+router.post('/nearby', auth, async (req, res) => {
   try {
     const { startupId, businessType, address } = req.body;
     
     if (!startupId || !businessType || !address) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    await verifyStartupOwnership(startupId, req.uid);
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
@@ -117,6 +128,8 @@ router.post('/nearby', async (req, res) => {
     });
 
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Nearby Competitors Error:', error);
     res.status(500).json({ error: error.message });
   }

@@ -3,12 +3,16 @@ const router = express.Router();
 const Report = require('../models/Report');
 const Startup = require('../models/Startup');
 const { generateResponse } = require('../services/geminiClient');
+const auth = require('../middleware/auth');
+const verifyStartupOwnership = require('../middleware/verifyStartupOwnership');
 
 // POST /api/reports/business-plan
-router.post('/business-plan', async (req, res) => {
+router.post('/business-plan', auth, async (req, res) => {
   try {
     const { startupId, problem, solution, businessModel } = req.body;
     
+    await verifyStartupOwnership(startupId, req.uid);
+
     const startup = await Startup.findById(startupId);
     if (!startup) return res.status(404).json({ message: 'Startup not found' });
 
@@ -45,16 +49,20 @@ Format the response in Markdown with these sections:
     res.status(201).json(report);
 
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Report Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // POST /api/reports/market-research
-router.post('/market-research', async (req, res) => {
+router.post('/market-research', auth, async (req, res) => {
   try {
     const { startupId, industry, targetMarket, region } = req.body;
     
+    await verifyStartupOwnership(startupId, req.uid);
+
     const startup = await Startup.findById(startupId);
     if (!startup) return res.status(404).json({ message: 'Startup not found' });
 
@@ -89,16 +97,20 @@ Format the response in Markdown with these EXACT sections:
     res.status(201).json(report);
 
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Report Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // POST /api/reports/fundraising-prep
-router.post('/fundraising-prep', async (req, res) => {
+router.post('/fundraising-prep', auth, async (req, res) => {
   try {
     const { startupId, stage, amountSeeking, useOfFunds } = req.body;
     
+    await verifyStartupOwnership(startupId, req.uid);
+
     const startup = await Startup.findById(startupId);
     if (!startup) return res.status(404).json({ message: 'Startup not found' });
 
@@ -131,6 +143,8 @@ Format the response in Markdown with these EXACT sections:
     res.status(201).json(report);
 
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Report Error:', error);
     res.status(500).json({ error: error.message });
   }
@@ -138,14 +152,20 @@ Format the response in Markdown with these EXACT sections:
 
 
 // GET /api/reports?startupId=xxx&type=xxx
-router.get('/', async (req, res) => {
+router.get('/', auth, async (req, res) => {
   try {
     const { startupId, type } = req.query;
+    if (!startupId) return res.status(400).json({ message: 'startupId is required' });
+
+    await verifyStartupOwnership(startupId, req.uid);
+
     let query = { startupId };
     if (type) query.type = type;
     const reports = await Report.find(query).sort({ createdAt: -1 });
     res.json(reports);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });

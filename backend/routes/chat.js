@@ -3,11 +3,15 @@ const router = express.Router();
 const ChatMessage = require('../models/ChatMessage');
 const Startup = require('../models/Startup');
 const { generateResponse } = require('../services/geminiClient');
+const auth = require('../middleware/auth');
+const verifyStartupOwnership = require('../middleware/verifyStartupOwnership');
 
 // POST /api/chat
-router.post('/', async (req, res) => {
+router.post('/', auth, async (req, res) => {
   try {
     const { startupId, message } = req.body;
+
+    await verifyStartupOwnership(startupId, req.uid);
 
     // Verify startup exists
     const startup = await Startup.findById(startupId);
@@ -57,18 +61,24 @@ Act as an experienced entrepreneur. Be direct, actionable, and insightful. Avoid
 
     res.status(200).json(assistantMessage);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     console.error('Chat error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 // GET /api/chat/:startupId
-router.get('/:startupId', async (req, res) => {
+router.get('/:startupId', auth, async (req, res) => {
   try {
+    await verifyStartupOwnership(req.params.startupId, req.uid);
+
     const history = await ChatMessage.find({ startupId: req.params.startupId })
       .sort({ createdAt: 1 });
     res.json(history);
   } catch (error) {
+    if (error.message === 'NOT_FOUND') return res.status(404).json({ message: 'Startup not found' });
+    if (error.message === 'FORBIDDEN') return res.status(403).json({ message: 'Forbidden' });
     res.status(500).json({ error: error.message });
   }
 });
