@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MessageSquare, Search, BarChart2, FileText, CheckSquare, Target, Github } from 'lucide-react';
+import { MessageSquare, Search, BarChart2, FileText, CheckSquare, Target, Code } from 'lucide-react';
 
 // Scroll reveal component
 const RevealSection = ({ children, className = '', id = '' }) => {
@@ -210,7 +210,7 @@ const Landing = () => {
           <p className="footer-tagline">Build your startup faster.</p>
         </div>
         <a href="https://github.com" target="_blank" rel="noreferrer" className="footer-github">
-          <Github size={20} />
+          <Code size={20} />
         </a>
       </footer>
     </div>
