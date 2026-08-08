@@ -4,6 +4,7 @@ import { LayoutDashboard, MessageSquare, CheckSquare, FileText, Search, BarChart
 import api from './lib/api';
 
 // Pages placeholders
+import Landing from './pages/Landing';
 import Onboarding from './pages/Onboarding';
 import Dashboard from './pages/Dashboard';
 import Chat from './pages/Chat';
@@ -59,7 +60,8 @@ function App() {
     return (
       <Router>
         <Routes>
-          <Route path="/" element={<Onboarding setStartupId={setStartupId} />} />
+          <Route path="/" element={<Landing />} />
+          <Route path="/get-started" element={<Onboarding setStartupId={setStartupId} />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
@@ -78,6 +80,8 @@ function App() {
           <Route path="/fundraising-prep" element={<FundraisingPrep startupId={startupId} />} />
           <Route path="/competitors" element={<Competitors startupId={startupId} />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/get-started" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
     </Router>
